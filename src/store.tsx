@@ -5,7 +5,8 @@ import {type Records,type Table,type Row,type Profile,defaultProfile,tables,empt
 import {demoRecords} from './seed';
 const url=import.meta.env.VITE_SUPABASE_URL;const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const client:SupabaseClient|null=url&&key?createClient(url,key):null;
-interface Store { db:Records; profile:Profile; session:Session|null; demo:boolean; recovery:boolean; finishRecovery:()=>void; ready:boolean; loading:boolean; error:string; save:(table:Table,data:Partial<Row>)=>Promise<Row>; remove:(table:Table,id:string)=>Promise<void>; saveProfile:(data:Partial<Profile>)=>Promise<void>; refresh:()=>Promise<void>; setDemo:(v:boolean)=>void; signOut:()=>Promise<void>; client:SupabaseClient|null; upload:(file:File,meta:Partial<Row>,onProgress?:(n:number)=>void)=>Promise<Row>; openFile:(row:Row)=>Promise<void>; notify:(message:string)=>void; rpc:(name:string,args:Record<string,unknown>)=>Promise<unknown>; }
+interface Store { db:Records; profile:Profile; session:Session|null; demo:boolean; recovery:boolean; finishRecovery:()=>void; ready:boolean; loading:boolean; error:string; errorCode:string; save:(table:Table,data:Partial<Row>)=>Promise<Row>; remove:(table:Table,id:string)=>Promise<void>; saveProfile:(data:Partial<Profile>)=>Promise<void>; refresh:()=>Promise<void>; setDemo:(v:boolean)=>void; signOut:()=>Promise<void>; client:SupabaseClient|null; upload:(file:File,meta:Partial<Row>,onProgress?:(n:number)=>void)=>Promise<Row>; openFile:(row:Row)=>Promise<void>; notify:(message:string)=>void; rpc:(name:string,args:Record<string,unknown>)=>Promise<unknown>; }
+function databaseError(table:string,issue:{message:string;code?:string}){return Object.assign(new Error(`${table}: ${issue.message}`),{code:issue.code??''})}
 function newId(){const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;}
 const developmentRecords=()=>import.meta.env.DEV?demoRecords():emptyRecords();
 const Context=createContext<Store|null>(null);
@@ -15,10 +16,21 @@ export function StoreProvider({children}:{children:ReactNode}){
  const memoryRef=useRef(memory),lastUser=useRef<string|null>(null);
  useEffect(()=>{if(!client)return;const {data}=client.auth.onAuthStateChange((event,next)=>{const userId=next?.user.id??null;if(lastUser.current!==userId){qc.clear();lastUser.current=userId}if(event==='PASSWORD_RECOVERY')setRecovery(true);if(event==='SIGNED_OUT')setRecovery(false);setSession(next);setReady(true)});return()=>data.subscription.unsubscribe()},[qc]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),5000);return()=>clearTimeout(t)},[toast]);
- const query=useQuery({queryKey:['records',session?.user.id],enabled:!!session&&!demo&&!recovery,queryFn:async()=>{const result=emptyRecords();await Promise.all(tables.map(async t=>{let offset=0;while(true){const {data,error}=await client!.from(t).select('*').eq('user_id',session!.user.id).order('created_at',{ascending:false}).range(offset,offset+999);if(error)throw new Error(`${t}: ${error.message}`);result[t].push(...data as Row[]);if(data.length<1000)break;offset+=1000}}));return result}});
- const profileQuery=useQuery({queryKey:['profile',session?.user.id],enabled:!!session&&!demo&&!recovery,queryFn:async()=>{const {data,error}=await client!.from('profiles').select('*').eq('id',session!.user.id).single();if(error)throw error;return data as Profile}});
+ const query=useQuery({queryKey:['records',session?.user.id],enabled:!!session&&!demo&&!recovery,queryFn:async()=>{const result=emptyRecords();await Promise.all(tables.map(async t=>{let offset=0;while(true){const {data,error}=await client!.from(t).select('*').eq('user_id',session!.user.id).order('created_at',{ascending:false}).range(offset,offset+999);if(error)throw databaseError(t,error);result[t].push(...data as Row[]);if(data.length<1000)break;offset+=1000}}));return result}});
+ const profileQuery=useQuery({queryKey:['profile',session?.user.id],enabled:!!session&&!demo&&!recovery,queryFn:async()=>{
+  const userId=session!.user.id;
+  const getProfile=()=>client!.from('profiles').select('*').eq('id',userId).maybeSingle();
+  let {data,error}=await getProfile();if(error)throw error;
+  if(!data){
+   const {error:createError}=await client!.from('profiles').upsert({id:userId},{onConflict:'id',ignoreDuplicates:true});
+   if(createError)throw createError;
+   ({data,error}=await getProfile());if(error)throw error;
+   if(!data)throw new Error('Could not create your workspace profile.');
+  }
+  return data as Profile;
+ }});
  const notify=(s:string)=>setToast(s);
- const refresh=async()=>{await qc.invalidateQueries({queryKey:['records',session?.user.id]})};
+ const refresh=async()=>{await Promise.all([qc.invalidateQueries({queryKey:['records',session?.user.id]}),qc.invalidateQueries({queryKey:['profile',session?.user.id]})])};
  const save=async(table:Table,input:Partial<Row>):Promise<Row>=>{
   const now=new Date().toISOString();
   input=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,k.endsWith("_id")&&v===""?null:v]));
@@ -42,5 +54,7 @@ export function StoreProvider({children}:{children:ReactNode}){
  };
  const openFile=async(row:Row)=>{if(demo)throw new Error('Example files do not contain uploaded documents.');const {data,error}=await client!.storage.from('academic-files').createSignedUrl(String(row.storage_path),60);if(error)throw error;window.open(data.signedUrl,'_blank','noopener,noreferrer')};
  const rpc=async(name:string,args:Record<string,unknown>)=>{if(demo)throw new Error('This operation requires Supabase.');const {data,error}=await client!.rpc(name,args);if(error)throw error;await refresh();return data};
- return <Context.Provider value={{db:demo?memory:query.data??emptyRecords(),profile:demo?demoProfile:profileQuery.data??defaultProfile,session,demo,recovery,finishRecovery:()=>setRecovery(false),ready,loading:!demo&&(query.isLoading||profileQuery.isLoading),error:query.error?.message??profileQuery.error?.message??'',save,remove,saveProfile,refresh,setDemo:(value:boolean)=>{if(import.meta.env.DEV)setDemo(value)},signOut:async()=>{if(demo){setDemo(false);memoryRef.current=developmentRecords();setMemory(memoryRef.current);return}await client?.auth.signOut();setRecovery(false);qc.clear()},client,upload,openFile,notify,rpc}}>{children}{toast&&<div role="status" className="toast" onClick={()=>setToast('')}>{toast}</div>}</Context.Provider>
+ const workspaceFailure=query.error??profileQuery.error;
+ const errorCode=workspaceFailure&&'code' in workspaceFailure&&typeof workspaceFailure.code==='string'?workspaceFailure.code:'';
+ return <Context.Provider value={{db:demo?memory:query.data??emptyRecords(),profile:demo?demoProfile:profileQuery.data??defaultProfile,session,demo,recovery,finishRecovery:()=>setRecovery(false),ready,loading:!demo&&(query.isLoading||profileQuery.isLoading),error:workspaceFailure?.message??'',errorCode,save,remove,saveProfile,refresh,setDemo:(value:boolean)=>{if(import.meta.env.DEV)setDemo(value)},signOut:async()=>{if(demo){setDemo(false);memoryRef.current=developmentRecords();setMemory(memoryRef.current);return}await client?.auth.signOut();setRecovery(false);qc.clear()},client,upload,openFile,notify,rpc}}>{children}{toast&&<div role="status" className="toast" onClick={()=>setToast('')}>{toast}</div>}</Context.Provider>
 }

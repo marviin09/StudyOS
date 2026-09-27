@@ -9,7 +9,14 @@ create table storage.buckets(id text primary key,name text,public boolean,file_s
 create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);
 alter table storage.objects enable row level security;
 create function storage.foldername(text) returns text[] language sql immutable as $$ select string_to_array($1,'/') $$;`);
+const existing='33333333-3333-4333-8333-333333333333';
+await db.query('insert into auth.users(id,raw_user_meta_data) values($1,$2)',[existing,{full_name:'Existing Student'}]);
 await db.exec(readFileSync('supabase/migrations/202609230001_initial.sql','utf8').replace('create extension if not exists pgcrypto;',''));
+assert.equal((await db.query('select count(*)::int as n from public.profiles where id=$1',[existing])).rows[0].n,0);
+const backfill=readFileSync('supabase/migrations/202609270001_backfill_existing_profiles.sql','utf8');
+await db.exec(backfill);
+await db.exec(backfill);
+assert.equal((await db.query('select display_name from public.profiles where id=$1',[existing])).rows[0].display_name,'Existing Student');
 await db.exec('grant usage on schema public,auth,storage to authenticated; grant select,insert,update,delete on all tables in schema public to authenticated; grant select,insert,update,delete on storage.objects to authenticated;');
 const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
 await db.query('insert into auth.users(id,raw_user_meta_data) values($1,$3),($2,$4)',[a,b,{full_name:'Example Student'},{}]);
@@ -35,4 +42,4 @@ await db.query("insert into storage.objects(bucket_id,name) values('academic-fil
 assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n,1);
 await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('academic-files',$1)",[`${a}/unsafe.pdf`]));
 await db.exec(`set request.jwt.claim.sub='${a}';`);assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n,0);
-console.log('PASS: migration, score constraints, generated grading, atomic imports, repeat prevention, RLS isolation, composite ownership foreign keys, storage ownership');await db.close();
+console.log('PASS: migrations, existing-account backfill, score constraints, generated grading, atomic imports, repeat prevention, RLS isolation, composite ownership foreign keys, storage ownership');await db.close();

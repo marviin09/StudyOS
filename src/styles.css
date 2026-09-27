@@ -7,3 +7,4 @@
 @media(prefers-reduced-motion:no-preference){button,a{transition:background .12s,color .12s,box-shadow .12s}.subject-card:hover,.quick-card:hover{box-shadow:0 8px 25px #53229610}}
 
 .auth-intro{font-size:.94rem;color:var(--text-secondary);margin:12px 0 22px}.auth-email-form{margin-top:22px}.auth-email-form .button{min-height:48px}.auth-links{display:flex;justify-content:space-between;gap:12px;margin-top:19px}.auth-links .text-link,.auth-back{color:var(--primary);font-size:.86rem}.auth-back{margin-top:19px}.auth-message{margin-top:18px;padding:12px 14px;border-radius:10px;background:#fff1f2;color:#8e2844;font-size:.86rem}.auth-message.success{background:#ecfaf5;color:#137158}.auth-preview{margin-top:20px}
+.workspace-error-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}.workspace-error-actions .button{min-width:110px}.error-box details{margin-top:12px}
