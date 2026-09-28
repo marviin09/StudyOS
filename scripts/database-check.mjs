@@ -2,7 +2,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const db=new PGlite();
-await db.exec(`create schema auth; create schema storage; create role authenticated;
+await db.exec(`create schema auth; create schema storage; create role authenticated; create role anon;
 create table auth.users(id uuid primary key,raw_user_meta_data jsonb not null default '{}');
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
 create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
@@ -17,11 +17,21 @@ const backfill=readFileSync('supabase/migrations/202609270001_backfill_existing_
 await db.exec(backfill);
 await db.exec(backfill);
 assert.equal((await db.query('select display_name from public.profiles where id=$1',[existing])).rows[0].display_name,'Existing Student');
-await db.exec('grant usage on schema public,auth,storage to authenticated; grant select,insert,update,delete on all tables in schema public to authenticated; grant select,insert,update,delete on storage.objects to authenticated;');
+assert.equal((await db.query("select has_table_privilege('authenticated','public.ielts_attempts','SELECT') as allowed")).rows[0].allowed,false);
+await db.exec(readFileSync('supabase/migrations/202609280001_explicit_api_access.sql','utf8'));
+const audit=(await db.query(readFileSync('scripts/verify-supabase-schema.sql','utf8'))).rows;
+assert.equal(audit.length,27);
+assert.deepEqual(audit.filter(row=>!row.ready),[],'Every StudyOS table must exist, have RLS and ownership policies, and allow authenticated CRUD.');
+// Only the Supabase-managed auth/storage mock schemas need fixture grants.
+// Public app-table privileges must come from the real migration above.
+await db.exec('grant usage on schema auth,storage to authenticated; grant select,insert,update,delete on storage.objects to authenticated;');
 const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
 await db.query('insert into auth.users(id,raw_user_meta_data) values($1,$3),($2,$4)',[a,b,{full_name:'Example Student'},{}]);
 await db.exec(`set role authenticated; set request.jwt.claim.sub='${a}';`);
 assert.equal((await db.query('select display_name from profiles')).rows[0].display_name,'Example Student');
+const attempt=(await db.query("insert into ielts_attempts(title,skill,attempt_date,correct) values('Reading practice','Reading',current_date,34) returning id")).rows[0].id;
+await db.query('update ielts_attempts set correct=35 where id=$1',[attempt]);
+assert.equal((await db.query('select correct from ielts_attempts where id=$1',[attempt])).rows[0].correct,35);
 const subject=(await db.query("insert into subjects(name) values('Physics') returning id")).rows[0].id;
 await db.query("insert into exams(title,subject_id,exam_date,score,maximum_score) values('Quiz',$1,current_date,42,50)",[subject]);
 await assert.rejects(db.query("insert into exams(title,subject_id,exam_date,score,maximum_score) values('Bad',$1,current_date,51,50)",[subject]));
@@ -35,6 +45,9 @@ await assert.rejects(db.query("select accept_inbox($1,'Repeat',current_date,'Taw
 await db.exec(`set request.jwt.claim.sub='${b}';`);
 assert.equal((await db.query('select count(*)::int as n from subjects')).rows[0].n,0);
 assert.deepEqual((await db.query('select display_name from profiles')).rows.map(r=>r.display_name),['Student']);
+assert.equal((await db.query('select count(*)::int as n from ielts_attempts')).rows[0].n,0);
+assert.equal((await db.query('update ielts_attempts set correct=1 where id=$1 returning id',[attempt])).rows.length,0);
+assert.equal((await db.query('delete from ielts_attempts where id=$1 returning id',[attempt])).rows.length,0);
 await assert.rejects(db.query("insert into tasks(title,subject_id) values('Foreign reference',$1)",[subject]));
 await assert.rejects(db.query('insert into subjects(name,user_id) values($1,$2)',['Impersonation',a]));
 await assert.rejects(db.query('select accept_inbox($1,$2,current_date,$3,null,true,false,false)',[inbox,'Not mine','Tawjihi']));
@@ -42,4 +55,7 @@ await db.query("insert into storage.objects(bucket_id,name) values('academic-fil
 assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n,1);
 await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('academic-files',$1)",[`${a}/unsafe.pdf`]));
 await db.exec(`set request.jwt.claim.sub='${a}';`);assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n,0);
-console.log('PASS: migrations, existing-account backfill, score constraints, generated grading, atomic imports, repeat prevention, RLS isolation, composite ownership foreign keys, storage ownership');await db.close();
+assert.equal((await db.query('delete from ielts_attempts where id=$1 returning id',[attempt])).rows.length,1);
+await db.exec('set role anon;');
+await assert.rejects(db.query('select * from public.ielts_attempts'));
+console.log('PASS: migrations, 27-table API readiness, existing-account backfill, IELTS CRUD and isolation, score constraints, generated grading, atomic imports, repeat prevention, RLS isolation, composite ownership foreign keys, storage ownership');await db.close();

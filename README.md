@@ -10,8 +10,8 @@ The local development server offers a clearly labeled, temporary sample-data pre
 
 ## Connect Supabase
 
-1. An eligible project administrator applies `supabase/migrations/202609230001_initial.sql` and then `supabase/migrations/202609270001_backfill_existing_profiles.sql` to the owner's Supabase project. The first migration provisions tables, owner-based row security, cross-account reference constraints, automatic profile creation, transactional practice/import functions, and the private `academic-files` bucket. The second creates profiles for accounts that already existed before the first migration. Neither inserts sample study records.
-2. An eligible project administrator enables Email authentication and new user signups, keeps email confirmation enabled, and configures custom SMTP for confirmation and password reset mail. Supabase's default mailer only sends to project team addresses, so it cannot support public signups.
+1. Inspect the project with the read-only `scripts/verify-supabase-schema.sql`. For a fresh database, apply the migrations in filename order: `202609230001_initial.sql`, `202609270001_backfill_existing_profiles.sql`, and `202609280001_explicit_api_access.sql`. They create the app tables, RLS, ownership constraints, RPCs, private file bucket, existing-user profiles, and explicit authenticated API grants, then refresh the schema cache. No sample study records are inserted. For a partially configured database, compare its schema and migration history first and apply only missing changes; do not rerun the initial migration or reset an existing database blindly. Re-run the audit: all 27 rows must report `ready = true`.
+2. The project administrator enables Email authentication and new user signups, keeps email confirmation enabled, and configures custom SMTP for confirmation and password reset mail. Supabase's default mailer only sends to project team addresses, so it cannot support public signups.
 3. Set the Supabase Auth Site URL to the production origin and allow the exact production redirect URL ending in `/`. Add a local development URL only for local testing. Avoid broad production wildcards. Sign-up confirmation and password reset links return to this URL.
 4. Copy `.env.example` to `.env.local`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the project's URL and publishable browser key. Never put a service-role key, database password, or SMTP credential in the frontend or GitHub repository.
 5. Restart the development server or rebuild the deployment; Vite embeds public environment values at build time. Verify email account creation, confirmation, sign-in, password recovery, sign-out, reload persistence, two-account isolation, and PDF/image upload/download on the actual service before opening the deployment to other users.
@@ -32,7 +32,7 @@ Vite environment values are embedded at build time. Changing them requires a reb
 
 `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:db`, and `npm run build`.
 
-The database check runs both migrations in PGlite PostgreSQL with mocked Supabase auth/storage schemas. It checks preexisting-account profile creation, score constraints, answer grading, atomic import acceptance, duplicate acceptance prevention, RLS isolation, cross-owner references and storage path ownership. It does not replace testing against a live Supabase project.
+The database check runs all migrations in PGlite PostgreSQL with mocked Supabase auth/storage schemas. App-table grants come from the actual migrations, not test fixtures. It checks all 27 tables, IELTS CRUD and cross-user isolation, preexisting-account profile creation, score constraints, answer grading, atomic imports, ownership references and private storage paths. It does not replace testing against a live Supabase project.
 
 ## GitHub source publication
 
