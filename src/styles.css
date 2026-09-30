@@ -120,7 +120,9 @@ progress::-moz-progress-bar{background:#6153d8}
  .subject-card,.quick-card{transition:transform .24s,box-shadow .24s}
 }
 @media(max-width:850px){
- .app-main{margin-left:0}
+ .sidebar{width:76px;padding:24px 10px}
+ .sidebar .brand-mark{width:39px;height:39px}
+ .app-main{margin-left:76px}
  .auth-page{display:flex;align-items:stretch;justify-content:flex-start;gap:16px;padding:30px 18px 45px}
  .auth-brand{margin:0 auto 2px;font-size:1.35rem}
  .auth-story{max-width:470px;width:100%;margin:0 auto;padding:0}
@@ -131,6 +133,7 @@ progress::-moz-progress-bar{background:#6153d8}
  .welcome-art{right:32px;opacity:.5}
 }
 @media(max-width:600px){
+ .app-main{margin-left:0}
  .welcome-hero{min-height:207px;padding:23px 21px;border-radius:21px;margin-bottom:18px}
  .welcome-hero h1{font-size:2rem}
  .welcome-hero p{font-size:.81rem;line-height:1.5;max-width:250px}
