@@ -10,7 +10,7 @@ The local development server offers a clearly labeled, temporary sample-data pre
 
 ## Connect Supabase
 
-1. Inspect the project with the read-only `scripts/verify-supabase-schema.sql`. For a fresh database, apply the migrations in filename order: `202609230001_initial.sql`, `202609270001_backfill_existing_profiles.sql`, `202609280001_explicit_api_access.sql`, and `20260930162349_harden_profile_and_rls.sql`. They create the app tables, RLS, ownership constraints, RPCs, private file bucket, existing-user profiles, explicit authenticated API grants, and restrict the internal profile trigger, then refresh the schema cache. No sample study records are inserted. For a partially configured database, compare its schema and migration history first and apply only missing changes; do not rerun the initial migration or reset an existing database blindly. Re-run the audit: all 27 rows must report `ready = true`.
+1. Inspect the project with the read-only `scripts/verify-supabase-schema.sql`. For a fresh database, apply the migrations in filename order: `202609230001_initial.sql`, `202609270001_backfill_existing_profiles.sql`, `202609280001_explicit_api_access.sql`, `20260930162349_harden_profile_and_rls.sql`, and `20260930173125_account_study_setup.sql`. They create the app tables, RLS, ownership constraints, RPCs, private file bucket, existing-user profiles, explicit authenticated API grants, first-login study setup fields, and restrict the internal profile trigger, then refresh the schema cache. No sample study records are inserted. For a partially configured database, compare its schema and migration history first and apply only missing changes; do not rerun the initial migration or reset an existing database blindly. Re-run the audit: all 27 rows must report `ready = true`.
 2. The project administrator enables Email authentication and new user signups, keeps email confirmation enabled, and configures custom SMTP for confirmation and password reset mail. Supabase's default mailer only sends to project team addresses, so it cannot support public signups.
 3. Set the Supabase Auth Site URL to the production origin and allow the exact production redirect URL ending in `/`. Add a local development URL only for local testing. Avoid broad production wildcards. Sign-up confirmation and password reset links return to this URL.
 4. Copy `.env.example` to `.env.local`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the project's URL and publishable browser key. Never put a service-role key, database password, or SMTP credential in the frontend or GitHub repository.
@@ -21,6 +21,7 @@ Vite environment values are embedded at build time. Changing them requires a reb
 ## Implemented areas
 
 - Dashboard, editable tasks, focus timer, calendar, daily score and streak calculations.
+- First-login account setup for study routine, editable Tawjihi subjects and track, and optional Tawjihi, SAT and IELTS exam targets. Existing accounts can skip and edit setup later from Settings; each profile and subject belongs to its signed-in user.
 - Tawjihi subjects, units/topics, exams, files, mistakes and review scheduling.
 - SAT companion answer sheets with bulk IDs, editable answers, normalized grading, session timer, history, duplicate detection and analytics. No College Board questions are displayed or recreated.
 - IELTS reading/listening logs, writing and speaking records, mistakes and files. Bands are user-entered estimates.
@@ -32,7 +33,7 @@ Vite environment values are embedded at build time. Changing them requires a reb
 
 `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:db`, and `npm run build`.
 
-The database check runs all migrations in PGlite PostgreSQL with mocked Supabase auth/storage schemas. App-table grants come from the actual migrations, not test fixtures. It checks all 27 tables, IELTS CRUD and cross-user isolation, preexisting-account profile creation, score constraints, answer grading, atomic imports, ownership references and private storage paths. It does not replace testing against a live Supabase project.
+The database check runs all migrations in PGlite PostgreSQL with mocked Supabase auth/storage schemas. App-table grants come from the actual migrations, not test fixtures. It checks all 27 tables, IELTS CRUD and cross-user isolation, per-user study setup fields, preexisting-account profile creation, score constraints, answer grading, atomic imports, ownership references and private storage paths. It does not replace testing against a live Supabase project.
 
 ## GitHub source publication
 
@@ -40,4 +41,4 @@ The public GitHub repository contains only the application files enumerated by `
 
 ## Current limits
 
-The email/password build is deployed to the existing owner-only Site with the matching Supabase project URL and publishable key. On 2026-09-28 the live project received all required schema migrations, and on 2026-09-30 a hardening migration. The live schema audit reports all 27 tables ready; a rollback-only IELTS write test verified owner access and cross-account isolation. The project still needs confirmation of Email Auth, custom SMTP, and allowed redirect settings, followed by real signup, persistence, recovery and private-file tests before opening the Site to other users. File upload progress indicates processing stages, not bytes transferred. Offline writes and automatic email/WhatsApp ingestion are not implemented. See `docs/VERIFICATION.md` for evidence and remaining checks.
+The email/password build is deployed to the existing owner-only Site with the matching Supabase project URL and publishable key. On 2026-09-28 the live project received the base schema, and on 2026-09-30 the security and account setup migrations. The live schema audit reports all 27 tables ready; a rollback-only IELTS write test verified owner access and cross-account isolation. The project still needs confirmation of Email Auth, custom SMTP, and allowed redirect settings, followed by real signup, onboarding, persistence, recovery and private-file tests before opening the Site to other users. File upload progress indicates processing stages, not bytes transferred. Offline writes and automatic email/WhatsApp ingestion are not implemented. See `docs/VERIFICATION.md` for evidence and remaining checks.

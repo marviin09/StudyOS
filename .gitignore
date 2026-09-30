@@ -3,4 +3,5 @@ dist/
 .env
 .env.local
 .sites-runtime/
+supabase/.temp/
 *.tsbuildinfo

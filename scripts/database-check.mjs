@@ -20,6 +20,7 @@ assert.equal((await db.query('select display_name from public.profiles where id=
 assert.equal((await db.query("select has_table_privilege('authenticated','public.ielts_attempts','SELECT') as allowed")).rows[0].allowed,false);
 await db.exec(readFileSync('supabase/migrations/202609280001_explicit_api_access.sql','utf8'));
 await db.exec(readFileSync('supabase/migrations/20260930162349_harden_profile_and_rls.sql','utf8'));
+await db.exec(readFileSync('supabase/migrations/20260930173125_account_study_setup.sql','utf8'));
 assert.equal((await db.query("select has_function_privilege('authenticated','public.create_profile()','EXECUTE') as allowed")).rows[0].allowed,false);
 assert.equal((await db.query("select has_function_privilege('anon','public.create_profile()','EXECUTE') as allowed")).rows[0].allowed,false);
 const audit=(await db.query(readFileSync('scripts/verify-supabase-schema.sql','utf8'))).rows;
@@ -36,6 +37,8 @@ const attempt=(await db.query("insert into ielts_attempts(title,skill,attempt_da
 await db.query('update ielts_attempts set correct=35 where id=$1',[attempt]);
 assert.equal((await db.query('select correct from ielts_attempts where id=$1',[attempt])).rows[0].correct,35);
 const subject=(await db.query("insert into subjects(name) values('Physics') returning id")).rows[0].id;
+await db.query("update profiles set tawjihi_track='Scientific',tawjihi_target_date='2027-06-01',sat_target_date='2027-08-28',sat_target_score=1400,ielts_target_date='2027-04-24',ielts_target_band=7.5,onboarding_completed_at=now() where id=$1",[a]);
+assert.equal((await db.query('select tawjihi_track from profiles where id=$1',[a])).rows[0].tawjihi_track,'Scientific');
 await db.query("insert into exams(title,subject_id,exam_date,score,maximum_score) values('Quiz',$1,current_date,42,50)",[subject]);
 await assert.rejects(db.query("insert into exams(title,subject_id,exam_date,score,maximum_score) values('Bad',$1,current_date,51,50)",[subject]));
 const sid=(await db.query("select create_sat_practice('Practice','Math',null,'hard',array['1732','1738']) as id")).rows[0].id;
@@ -48,6 +51,8 @@ await assert.rejects(db.query("select accept_inbox($1,'Repeat',current_date,'Taw
 await db.exec(`set request.jwt.claim.sub='${b}';`);
 assert.equal((await db.query('select count(*)::int as n from subjects')).rows[0].n,0);
 assert.deepEqual((await db.query('select display_name from profiles')).rows.map(r=>r.display_name),['Student']);
+assert.equal((await db.query('select onboarding_completed_at from profiles')).rows[0].onboarding_completed_at,null);
+assert.equal((await db.query("update profiles set tawjihi_track='Other' where id=$1 returning id",[a])).rows.length,0);
 assert.equal((await db.query('select count(*)::int as n from ielts_attempts')).rows[0].n,0);
 assert.equal((await db.query('update ielts_attempts set correct=1 where id=$1 returning id',[attempt])).rows.length,0);
 assert.equal((await db.query('delete from ielts_attempts where id=$1 returning id',[attempt])).rows.length,0);
@@ -58,7 +63,8 @@ await db.query("insert into storage.objects(bucket_id,name) values('academic-fil
 assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n,1);
 await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('academic-files',$1)",[`${a}/unsafe.pdf`]));
 await db.exec(`set request.jwt.claim.sub='${a}';`);assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n,0);
+assert.deepEqual((await db.query('select tawjihi_track,tawjihi_target_date,sat_target_score,ielts_target_band,onboarding_completed_at is not null as completed from profiles')).rows.map(row=>({track:row.tawjihi_track,date:row.tawjihi_target_date.toISOString().slice(0,10),score:row.sat_target_score,band:Number(row.ielts_target_band),completed:row.completed})),[{track:'Scientific',date:'2027-06-01',score:1400,band:7.5,completed:true}]);
 assert.equal((await db.query('delete from ielts_attempts where id=$1 returning id',[attempt])).rows.length,1);
 await db.exec('set role anon;');
 await assert.rejects(db.query('select * from public.ielts_attempts'));
-console.log('PASS: migrations, 27-table API readiness, existing-account backfill, IELTS CRUD and isolation, score constraints, generated grading, atomic imports, repeat prevention, RLS isolation, composite ownership foreign keys, storage ownership');await db.close();
+console.log('PASS: migrations, 27-table API readiness, existing-account backfill, per-account study setup and targets, IELTS CRUD and isolation, score constraints, generated grading, atomic imports, repeat prevention, RLS isolation, composite ownership foreign keys, storage ownership');await db.close();
