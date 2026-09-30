@@ -1,11 +1,12 @@
 import {useState,type FormEvent} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {ArrowLeft,ArrowRight,BookOpen,CalendarDays,Check,Clock3,GraduationCap,LogOut,Plus,Target,X} from 'lucide-react';
+import {ArrowLeft,ArrowRight,BookOpen,CalendarDays,Check,Clock3,LogOut,Plus,Target,X} from 'lucide-react';
 import {useStore} from './store';
 import {errorMessage} from './ui';
+import {BrandMark} from './Brand';
 
 const suggestions=['Mathematics','Physics','Arabic','English','Chemistry','Biology','Computer Science'];
-const colors=['#7829ed','#f49b39','#3478e9','#22a78a','#b353d9','#d77087'];
+const colors=['#6153d8','#e6a66b','#568ec9','#49ad9e','#9276ca','#d784a4'];
 const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const steps=[
  {title:'Your study routine',caption:'Make your daily plan fit your actual time.',Icon:Clock3},
@@ -108,7 +109,7 @@ export function Onboarding(){
 
  return <div className="setup-page">
   <header className="setup-header">
-   <div className="setup-brand"><span className="brand-icon"><GraduationCap size={24}/></span><strong>StudyOS</strong></div>
+   <div className="setup-brand"><BrandMark/><strong>Nibria</strong></div>
    <button type="button" className="setup-signout" onClick={()=>signOut()} disabled={saving}><LogOut size={17}/> Sign out</button>
   </header>
   <div className="setup-layout">
@@ -152,9 +153,9 @@ export function Onboarding(){
     </div>}
 
     {step===2&&<div className="setup-fields">
-     <div className="setup-goal"><label className="setup-switch"><input type="checkbox" checked={sat} onChange={event=>setSat(event.target.checked)}/><span><strong>SAT target</strong><small>StudyOS tracks practice IDs, answers, timing and mistakes.</small></span></label>{sat&&<div className="setup-two"><label><CalendarDays size={15}/> Target date<input type="date" value={satDate} onChange={event=>setSatDate(event.target.value)}/></label><label><Target size={15}/> Target score<input type="number" min={400} max={1600} step={10} value={satScore} onChange={event=>setSatScore(event.target.value)} placeholder="400–1600"/></label></div>}</div>
+     <div className="setup-goal"><label className="setup-switch"><input type="checkbox" checked={sat} onChange={event=>setSat(event.target.checked)}/><span><strong>SAT target</strong><small>Nibria tracks practice IDs, answers, timing and mistakes.</small></span></label>{sat&&<div className="setup-two"><label><CalendarDays size={15}/> Target date<input type="date" value={satDate} onChange={event=>setSatDate(event.target.value)}/></label><label><Target size={15}/> Target score<input type="number" min={400} max={1600} step={10} value={satScore} onChange={event=>setSatScore(event.target.value)} placeholder="400–1600"/></label></div>}</div>
      <div className="setup-goal"><label className="setup-switch"><input type="checkbox" checked={ielts} onChange={event=>setIelts(event.target.checked)}/><span><strong>IELTS target</strong><small>Keep Reading, Listening, Writing and Speaking evidence together.</small></span></label>{ielts&&<div className="setup-two"><label><CalendarDays size={15}/> Target date<input type="date" value={ieltsDate} onChange={event=>setIeltsDate(event.target.value)}/></label><label><Target size={15}/> Target band<input type="number" min={0} max={9} step={0.5} value={ieltsBand} onChange={event=>setIeltsBand(event.target.value)} placeholder="0–9"/></label></div>}</div>
-     <p className="setup-note">You can leave dates empty until your exams are scheduled. StudyOS never supplies SAT questions; its practice sheet records your answers to question IDs you enter.</p>
+     <p className="setup-note">You can leave dates empty until your exams are scheduled. Nibria never supplies SAT questions; its practice sheet records your answers to question IDs you enter.</p>
     </div>}
     {error&&<p className="auth-message" role="alert">{error}</p>}
     <div className="setup-actions"><div>{step>0&&<button type="button" className="button secondary" disabled={saving} onClick={()=>{setStep(current=>current-1);setError('')}}><ArrowLeft size={16}/> Back</button>}</div><button type="submit" className="button" disabled={saving}>{saving?'Saving…':step===2?profile.onboarding_completed_at?'Save changes':'Open my workspace':'Continue'}{!saving&&step<2&&<ArrowRight size={16}/>}</button></div>

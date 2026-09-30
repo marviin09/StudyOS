@@ -4,9 +4,9 @@ export function demoRecords():Records {
  const db=emptyRecords(),today=dateKey();
  let count=0;
  const add=(table:keyof Records,data:Record<string,Row[string]>)=>{const row={id:`demo-${++count}`,user_id:'demo',created_at:new Date().toISOString(),updated_at:new Date().toISOString(),...data} as Row;db[table].push(row);return row.id};
- const math=add('subjects',{name:'Mathematics',color:'#7829ed',sort_order:0});
- const physics=add('subjects',{name:'Physics',color:'#ee9d31',sort_order:1});
- add('subjects',{name:'Arabic',color:'#ec729c',sort_order:2});add('subjects',{name:'English',color:'#48a691',sort_order:3});
+ const math=add('subjects',{name:'Mathematics',color:'#6153d8',sort_order:0});
+ const physics=add('subjects',{name:'Physics',color:'#e6a66b',sort_order:1});
+ add('subjects',{name:'Arabic',color:'#d784a4',sort_order:2});add('subjects',{name:'English',color:'#49ad9e',sort_order:3});
  const unit=add('units',{title:'Derivatives',subject_id:math,sort_order:0});
  for(const [i,title] of ['Average rate of change','The derivative','Differentiation rules','Tangent lines'].entries())add('topics',{title,subject_id:math,unit_id:unit,status:['mastered','good','learning','needs_practice'][i],sort_order:i});
  const pu=add('units',{title:'Mechanics',subject_id:physics,sort_order:0});add('topics',{title:'Collision in two dimensions',subject_id:physics,unit_id:pu,status:'needs_practice',sort_order:0});

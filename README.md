@@ -1,4 +1,6 @@
-# StudyOS
+# Nibria
+
+Nibria is the on-screen identity of the StudyOS project. Repository, Supabase schema and existing Site URL remain unchanged.
 
 Responsive personal study workspace built with React, TypeScript, Vite, Tailwind, React Router, TanStack Query, React Hook Form, Zod and Supabase.
 
